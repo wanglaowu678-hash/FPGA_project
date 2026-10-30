@@ -1,0 +1,32 @@
+# ---- Vivado 编译产物 ----
+*.jou
+*.log
+*.str
+*.wdb
+*.pb
+*.backup.*
+.Xil/
+webtalk*
+vivado*.log
+vivado*.jou
+
+# 工程自动生成目录（保留 srcs 与 .xci 配置）
+**/v1020.cache/
+**/v1020.gen/
+**/v1020.hw/
+**/v1020.runs/
+**/v1020.sim/
+**/v1020.ip_user_files/
+**/vivado/
+
+# ---- 系统 / 编辑器 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# ---- Python（skill/scripts） ----
+__pycache__/
+*.py[cod]
+.venv/

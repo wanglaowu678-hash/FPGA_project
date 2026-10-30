@@ -1,0 +1,9 @@
+* text=auto
+*.v    text eol=lf
+*.xdc  text eol=lf
+*.tcl  text eol=lf
+*.xci  text eol=lf
+*.py   text eol=lf
+*.md   text eol=lf
+*.pdf  binary
+*.mcs  binary
