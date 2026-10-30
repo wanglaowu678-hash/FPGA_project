@@ -10,7 +10,7 @@ What it checks:
     1. Recommended structure: README.md, src/, sim/, build/, board/, data/,
        skill/, report/ (missing entries are warnings unless --strict).
     2. File/directory names: lowercase letters, digits, dot, underscore, hyphen.
-       Conventional names such as README.md and SKILL.md are allowed.
+       Conventional names such as README.md and LICENSE are allowed.
     3. XDC constraints: every PACKAGE_PIN has an IOSTANDARD and vice versa,
        matched by port name inside [get_ports ...].
 
@@ -30,7 +30,7 @@ from pathlib import Path
 
 REQUIRED = ["README.md", "src", "sim", "build", "board", "data", "skill", "report"]
 NAME_RE = re.compile(r"^[a-z0-9._-]+$")
-ALLOW_UPPER = {"README.md", "SKILL.md", "LICENSE", "LICENSE.md"}
+ALLOW_UPPER = {"README.md", "LICENSE", "LICENSE.md"}
 
 # [get_ports {led[0]}] or [get_ports clk]
 _PORT = r"\[get_ports\s+(?:\{([^}]*)\}|([^\]\s]+))\s*\]"

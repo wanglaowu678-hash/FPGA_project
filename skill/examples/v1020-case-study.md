@@ -82,7 +82,7 @@ OV7725 DVP
 
 ### 5.1 行缓存读下标越界
 
-- **证据**：`srcs/erode.v:53-55`、`srcs/dilate.v:52-54`
+- **证据**：`src/erode.v:53-55`、`src/dilate.v:52-54`
   - guard：`VtcHCnt>=2`
   - 读：`LineBuffer2[VtcHCnt-3]`
 - **现象**：`VtcHCnt=2` 时读下标为负；仿真得到 X，上板左边界 1~3 列异常。
@@ -105,7 +105,7 @@ if (VtcHCnt>=3 && VtcVCnt>=3 && VtcHCnt<318 && VtcVCnt<238) begin
 
 ### 5.2 帧首行缓存未清，`v>=2` 不够
 
-- **证据**：`srcs/erode.v:22-34`，`state` 每帧在 `VtcVCnt==0` 归零；
+- **证据**：`src/erode.v:22-34`，`state` 每帧在 `VtcVCnt==0` 归零；
   `LineBuffer0..3` 没有清零逻辑。
 - **现象**：每帧最上面一行（v=2）出现上一帧的残留白块/黑块。
 - **根因**：4×4 窗口需要前 3 行。v=2 时只有 v=0、v=1 两行属于当前帧，
@@ -125,7 +125,7 @@ end
 
 ### 5.3 消隐期仍写行缓存第 0 列
 
-- **证据**：`srcs/erode.v:44-47` 等，`LineBuffer0[VtcHCnt] <= pix_i;` 没有写使能；
+- **证据**：`src/erode.v:44-47` 等，`LineBuffer0[VtcHCnt] <= pix_i;` 没有写使能；
   `region_cut` 在窗口外把 `VtcHCnt` 钳到 0。
 - **现象**：左边界 3 列参与形态学运算时，用的是被消隐期覆盖过的第 0 列。
 - **根因**：消隐期每个 25 MHz 周期都写 `LineBuffer[0]`，把上一行第 0 列覆盖掉；
@@ -135,7 +135,7 @@ end
 
 ### 5.4 组合逻辑里用非阻塞赋值
 
-- **证据**：`srcs/BW.v:12-38`，`always@(*)` 内使用 `H_diff <= ...`、`diff_sum <= ...`、
+- **证据**：`src/bw.v:12-38`，`always@(*)` 内使用 `H_diff <= ...`、`diff_sum <= ...`、
   `Binary_out <= ...`。
 - **现象**：仿真依赖 delta cycle 收敛；可读性差，容易在后续修改中引入竞争。
 - **根因**：组合逻辑应使用阻塞赋值 `=`，非阻塞赋值表达的是“时钟沿后更新”。
@@ -160,7 +160,7 @@ end
 
 ### 5.5 HSV 色相环绕：红色可能被平均成青色
 
-- **证据**：`srcs/colorDetect.v:139-152`，ROI 内直接累加 `HUE`，帧末 `H_Sum/1024`；
+- **证据**：`src/color_detect.v:139-152`，ROI 内直接累加 `HUE`，帧末 `H_Sum/1024`；
   `HUE` 范围 0..179，红色同时出现在 0 和 179 附近。
 - **现象**：目标红色跨 0/179 时，参考色 H 可能落在 90 附近（青色），红色检测不到。
 - **根因**：H 是环形量，线性平均不满足环绕语义；`(0+179)/2≈90`。
@@ -176,8 +176,8 @@ wire [7:0] dh_wrap = (dh > 90) ? (180 - dh) : dh;
 
 ### 5.6 UART 发的是原始字节，不是 ASCII
 
-- **证据**：`srcs/design_1.v:111`，`assign uarttemp = SwitchUart ? angle : counter_v1;`；
-  `srcs/design_1.v:389`，`.data_o(uarttemp)`；`srcs/uart_tx.v` 直接按位发送。
+- **证据**：`src/design_1.v:111`，`assign uarttemp = SwitchUart ? angle : counter_v1;`；
+  `src/design_1.v:389`，`.data_o(uarttemp)`；`src/uart_tx.v` 直接按位发送。
 - **现象**：串口助手默认 ASCII 模式显示乱码；用户误以为波特率不对。
 - **根因**：发送的是 0..255 的二进制值，不是 `'0'..'9'`/`'A'..'F'` 字符。
 - **修复**：FPGA 内先做 bin→ASCII（十进制字符串），或上位机切 HEX 模式/按二进制解析。
@@ -191,7 +191,7 @@ wire [7:0] dh_wrap = (dh > 90) ? (180 - dh) : dh;
 | `angle` 只有 8 位 | `angle_calculation.v:14` | 中 | 最大约 358°，会回绕；改 9 位或限幅 |
 | 加权质心用上一帧中心 | `weight_cal.v` + `center.v` | 中 | 中心偏了会正反馈锁死；首帧用普通质心 |
 | 行缓存用变量下标数组 | `erode.v:40-43` | 中 | 可能综合成大量 LUT/FF；考虑向量+移位或 BRAM |
-| EEPROM 读入标志粘滞 | `colorDetect.v:133` | 低 | 读完后清标志，避免覆盖按钮/清空 |
+| EEPROM 读入标志粘滞 | `src/color_detect.v:133` | 低 | 读完后清标志，避免覆盖按钮/清空 |
 
 ## 7. 复现步骤
 
@@ -200,10 +200,10 @@ wire [7:0] dh_wrap = (dh > 90) ? (180 - dh) : dh;
 1. 打开工程，列出顶层端口与所有例化模块（`design_1.v`）；
 2. 用 `templates/pipeline-dataflow.md` 填时钟、位宽、延迟；
 3. 用 `checklists/rtl-pitfalls.md` 的「触发条件」逐条 grep：
-   - `grep -n "\-3\]" srcs/erode.v srcs/dilate.v`
-   - `grep -n "always@(\*)" srcs/BW.v`
-   - `grep -n "H_Sum / 1024" srcs/colorDetect.v`
-   - `grep -n "uarttemp" srcs/design_1.v`
+   - `grep -n "\-3\]" src/erode.v src/dilate.v`
+   - `grep -n "always@(\*)" src/bw.v`
+   - `grep -n "H_Sum / 1024" src/color_detect.v`
+   - `grep -n "uarttemp" src/design_1.v`
 4. 对每个命中项，按「现象 → 根因 → 修复 → 验证」记录；
 5. 用 `scripts/check_uart_stream.py capture.bin --max 180` 检查串口抓包；
 6. 用 `scripts/repro_check.py .` 检查目录/命名/XDC。

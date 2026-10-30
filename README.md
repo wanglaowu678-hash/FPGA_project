@@ -33,51 +33,56 @@
 | 显示 | VGA 640×480 @ 60 Hz（Pmod VGA） |
 | 其他 | 板载 EEPROM（保存颜色阈值）、UART、4 位七段数码管 |
 
-> 引脚以 [ov7725colorbracking.xdc](v_1020/srcs/ov7725colorbracking.xdc) 为准。换板卡时只需改约束文件。
+> 引脚以 [ov7725_color_tracking.xdc](src/ov7725_color_tracking.xdc) 为准。换板卡时只需改约束文件。
 
-## 3. 仓库结构
+## 3. 目录结构
+
+按竞赛 3.3.5.4 推荐结构组织，所有目录与文件名使用小写英文、数字、下划线和连字符：
 
 ```
 FPGA_project/
-├── README.md
-├── LICENSE
-├── v_1020/                         # Vivado 工程（可直接打开）
-│   ├── v1020.xpr                   # Vivado 2026.1 工程文件
-│   ├── srcs/                       # 全部 RTL、约束、说明
-│   │   ├── design_1.v              # ★ 顶层
-│   │   ├── *.v                     # 各功能模块
-│   │   ├── ov7725colorbracking.xdc # 引脚与时序约束
-│   │   ├── schematic.pdf           # 设计框图
-│   │   └── mcs.mcs / mcs.prm       # Flash 固化文件
-│   └── v1020.srcs/sources_1/ip/    # IP 配置（.xci，Vivado 会自动重新生成产物）
-│       ├── clk_wiz_0/              # 100 MHz → 25 MHz 时钟
-│       └── blk_mem_gen_0/          # 帧缓存 BRAM
-├── scripts/
-│   └── create_project.tcl          # 从源码重新创建工程（不依赖 .xpr）
-└── skill/                          # FPGA 实时视觉流水线经验/提示词/模板包
+├── README.md                 # 项目简介 + 复现步骤
+├── LICENSE                   # MIT
+├── src/                      # 设计源码（RTL + 约束 + IP 配置）
+│   ├── design_1.v            # ★ 顶层
+│   ├── *.v                   # 各功能模块
+│   ├── ov7725_color_tracking.xdc
+│   └── ip/                   # clk_wiz_0 / blk_mem_gen_0 的 .xci
+├── sim/                      # 仿真/验证脚本与结果（当前无 testbench，见 sim/README.md）
+├── build/                    # 可复现构建脚本
+│   └── create_project.tcl    # 从 src/ 重建 Vivado 工程
+├── board/                    # 上板工程、运行脚本与实测输出
+│   ├── v1020.xpr             # Vivado 2026.1 工程
+│   ├── mcs.mcs / mcs.prm     # Flash 固化文件
+│   └── README.md
+├── data/                     # 测试数据与参考结果（本项目为实时摄像头输入，见 data/README.md）
+├── skill/                    # FPGA 实时视觉流水线经验包
+│   └── skill.md              # 技能入口
+└── report/                   # 设计报告 + 大模型协作记录
+    ├── schematic.pdf         # 设计框图
+    └── README.md
 ```
+
+编译产物（`.runs/`、`.gen/`、`.cache/`、`.sim/`、`.ip_user_files/` 等）已由 `.gitignore` 排除，首次打开工程后由 Vivado 自动生成。
 
 ## 4. 快速开始
 
-### 方式一：直接打开工程
+### 4.1 直接打开工程
 
 1. 安装 Vivado（工程由 **Vivado 2026.1** 创建，建议同版本或更新版本打开）。
-2. 打开 `v_1020/v1020.xpr`。
-3. Vivado 会根据 `.xci` 自动生成 `clk_wiz_0` 与 `blk_mem_gen_0` 的输出产物。
+2. 打开 [board/v1020.xpr](board/v1020.xpr)。
+3. Vivado 会根据 `src/ip/*/*.xci` 重新生成 `clk_wiz_0` 与 `blk_mem_gen_0` 的输出产物。
 4. 综合 → 实现 → 生成比特流 → 下载。
 
-> 仓库不包含 `.runs/.gen/.cache/.sim` 等编译产物，首次打开或换机器后需要重新综合，属正常现象。
+### 4.2 从源码重建工程
 
-### 方式二：用 Tcl 重建工程
-
-```tcl
-cd /path/to/FPGA_project
-vivado -mode batch -source scripts/create_project.tcl
+```bash
+vivado -mode batch -source build/create_project.tcl
 ```
 
-脚本会在 `vivado/` 下新建工程、加入全部 RTL/约束/IP，并设置顶层为 `design_1`。
+脚本会读取 `src/*.v`、`src/ov7725_color_tracking.xdc`、`src/ip/*/*.xci`，在 `board/` 下重建工程并设置顶层为 `design_1`。
 
-### 上板操作
+### 4.3 上板操作
 
 | 控件 | 功能 |
 |---|---|
@@ -96,7 +101,7 @@ OV7725 ──DVP(8bit)──► cam_ov7670_ov7725 ──► BRAM 帧缓存 ─�
                                                                                   │
                         ┌─────────────────────────────────────────────────────────┘
                         ▼
-              colorDetect（HSV 阈值 → 二值图）
+              color_detect（HSV 阈值 → 二值图）
                         │
               erode（3×3 腐蚀）──► dilate（3×3 膨胀）
                         │
@@ -115,13 +120,13 @@ OV7725 ──DVP(8bit)──► cam_ov7670_ov7725 ──► BRAM 帧缓存 ─�
 |---|---|
 | `design_1.v` | 顶层：例化并连接全部模块，定义对外端口 |
 | `cam_ov7670_ov7725.v` | DVP 采集：行/场同步解析、像素拼接、BRAM 写地址与写使能 |
-| `ov7725_regData.v` | OV7725 寄存器配置表（分辨率、格式等） |
-| `IICctrl.v` / `I2C_Controller.v` | SCCB/I2C 主机，把配置表逐条写入摄像头 |
+| `ov7725_reg_data.v` | OV7725 寄存器配置表（分辨率、格式等） |
+| `iicctrl.v` / `i2c_controller.v` | SCCB/I2C 主机，把配置表逐条写入摄像头 |
 | `clk_div.v` | 由 25 MHz 产生 38400 波特率时钟 |
 | `debounce.v` | 复位/按键消抖 |
 | `rgb2hsv_top.v` | RGB888 → HSV 色彩空间转换 |
-| `colorDetect.v` | 颜色分割核心：HSV 阈值判定、三通道切换、EEPROM 阈值载入、结果渲染 |
-| `BW.v` | 按阈值把 HSV 像素判为 0/1，输出二值图 |
+| `color_detect.v` | 颜色分割核心：HSV 阈值判定、三通道切换、EEPROM 阈值载入、结果渲染 |
+| `bw.v` | 按阈值把 HSV 像素判为 0/1，输出二值图 |
 | `erode.v` / `dilate.v` | 3×3 腐蚀 / 膨胀（形态学去噪） |
 | `weight_cal.v` | 计算像素参与质心的权重 |
 | `center.v` | ROI（320×240）内加权质心坐标计算 |
@@ -138,24 +143,22 @@ OV7725 ──DVP(8bit)──► cam_ov7670_ov7725 ──► BRAM 帧缓存 ─�
 | `rw_result_led.v` | 结果 LED 指示 |
 | `uart_tx.v` | UART 发送（38400 8N1） |
 
-## 7. skill/ 目录
+## 7. skill/
 
 `skill/` 是一个可复用的「FPGA 实时视觉流水线」经验包，与具体题目/板卡解耦，包含：
 
-- `SKILL.md` / `README.md`：适用范围与工作流；
+- `skill.md` / `README.md`：适用范围与工作流；
 - `prompts/`：讲解流水线、调试二值图、优化时序资源、移植到 PYNQ 等提示词；
 - `checklists/`：上板调试、RTL 常见坑、代码复用检查表；
 - `templates/`：模块说明、数据流、Vivado 报告检查模板；
 - `scripts/`：UART 数据流校验、Vivado 报告解析、复现性检查脚本；
 - `examples/v1020-case-study.md`：本工程作为案例的拆解。
 
-可以直接作为 AI 编程助手（Claude Code / Codex 等）的技能包使用。
-
 ## 8. 已知限制
 
 - 仅在 Basys3 + OV7725 硬件组合上验证；其他板卡需调整 XDC 与时钟。
 - ROI、HSV 阈值、形态学窗口等参数目前为常量，针对演示场景调过参。
-- `v1020.xpr` 中保存了创建时的绝对路径，跨机器打开时 Vivado 会提示路径变更；也可直接用 `scripts/create_project.tcl` 重建。
+- `board/v1020.xpr` 中不保存编译产物，首次打开会重新生成 IP 输出；也可直接用 `build/create_project.tcl` 重建。
 
 ## 9. 许可证
 
